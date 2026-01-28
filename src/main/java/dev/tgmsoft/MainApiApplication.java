@@ -1,4 +1,4 @@
-package dev.tgmsoft.main_api;
+package dev.tgmsoft;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

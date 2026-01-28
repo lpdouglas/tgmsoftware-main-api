@@ -1,4 +1,4 @@
-package dev.tgmsoft.main_api;
+package dev.tgmsoft;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
