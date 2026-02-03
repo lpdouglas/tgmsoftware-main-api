@@ -29,4 +29,4 @@ EXPOSE 8080
 
 ENV JAVA_OPTS=""
 
-CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+CMD ["sh", "-c", "set -a && . /etc/secrets/.env && set +a && java $JAVA_OPTS -jar app.jar"]
