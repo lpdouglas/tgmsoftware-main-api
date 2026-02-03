@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: main-api
+  mongodb:
+    uri: mongodb+srv://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@tgmsoftware.kbnb6qc.mongodb.net/sample_mflix?appName=sample_mflix&retryWrites=true&w=majority
+
+stripe:
+  key: ${STRIPE_SECRET_KEY:${STRIPE_KEY}}
