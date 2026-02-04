@@ -29,4 +29,6 @@ EXPOSE 8080
 
 ENV JAVA_OPTS=""
 
-CMD ["sh", "-c", "set -a && . /etc/secrets/.env && set +a && java $JAVA_OPTS -jar app.jar"]
+RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
+
+CMD ["bash", "-c", "set -a; source /etc/secrets/.env; set +a; exec java $JAVA_OPTS -jar app.jar"]
