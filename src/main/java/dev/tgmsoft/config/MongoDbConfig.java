@@ -1,13 +1,20 @@
 package dev.tgmsoft.config;
 
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.env.Environment;
+import org.springframework.data.mongodb.config.AbstractMongoClientConfiguration;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.mongodb.MongoClientSettings;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 @Component
 public class MongoDbConfig {
@@ -83,5 +90,36 @@ public class MongoDbConfig {
         logger.info("  - javax.net.debug enabled: {}", sslDebug);
         
         logger.info("========================================================");
+    }
+}
+
+@Configuration
+class MongoClientConfigurer {
+    private static final Logger logger = LoggerFactory.getLogger(MongoClientConfigurer.class);
+
+    @Bean(name = "mongoClient")
+    @ConditionalOnMissingBean
+    public MongoClient mongoClient(Environment env) {
+        String username = env.getProperty("MONGODB_USERNAME");
+        String password = env.getProperty("MONGODB_PASSWORD");
+        
+        // Build connection string with credentials
+        String connectionString = String.format(
+            "mongodb+srv://%s:%s@tgmsoftware.kbnb6qc.mongodb.net/sample_mflix?appName=sample_mflix&retryWrites=true&w=majority&tls=true",
+            username,
+            password
+        );
+        
+        logger.info("Creating MongoDB client with connection string (masked): mongodb+srv://[user]:[pass]@tgmsoftware.kbnb6qc.mongodb.net/...");
+        
+        try {
+            MongoClientSettings settings = MongoClientSettings.builder()
+                .applyConnectionString(new ConnectionString(connectionString))
+                .build();
+            return MongoClients.create(settings);
+        } catch (Exception e) {
+            logger.error("Failed to create MongoDB client", e);
+            throw new RuntimeException("Failed to create MongoDB client with provided credentials", e);
+        }
     }
 }

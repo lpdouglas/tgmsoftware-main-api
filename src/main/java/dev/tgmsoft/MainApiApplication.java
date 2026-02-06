@@ -35,8 +35,14 @@ public class MainApiApplication {
 		logger.info("Raw Environment Variables:");
 		logger.info("  MONGODB_USERNAME: {}", 
 			(mongoUsername != null && !mongoUsername.isEmpty()) ? "SET (length: " + mongoUsername.length() + ")" : "❌ NOT SET OR EMPTY");
+		if (mongoUsername != null && !mongoUsername.isEmpty()) {
+			logger.info("    First 10 chars: {}", mongoUsername.substring(0, Math.min(10, mongoUsername.length())));
+		}
 		logger.info("  MONGODB_PASSWORD: {}", 
 			(mongoPassword != null && !mongoPassword.isEmpty()) ? "SET (length: " + mongoPassword.length() + ")" : "❌ NOT SET OR EMPTY");
+		if (mongoPassword != null && !mongoPassword.isEmpty()) {
+			logger.info("    First 5 chars: {}", mongoPassword.substring(0, Math.min(5, mongoPassword.length())));
+		}
 		
 		// CRITICAL: Log the ACTUAL URI Spring is using
 		logger.info("\n⚠️  ACTUAL MongoDB Connection URI Being Used:");
@@ -50,10 +56,20 @@ public class MainApiApplication {
 				logger.error("❌ CRITICAL: MongoDB URI is using LOCALHOST!");
 				logger.error("   URI: {}", mongoUri);
 				logger.error("   This means environment variables are NOT being interpolated!");
-				logger.error("   Expected to connect to: ac-6ttpd7u-shard-00-*.kbnb6qc.mongodb.net");
 			} else {
 				String maskedUri = maskMongoUri(mongoUri);
-				logger.info("✓ URI looks correct: {}", maskedUri);
+				logger.info("✓ Full URI (masked): {}", maskedUri);
+				
+				// Extract connection details
+				try {
+					if (mongoUri.contains("@")) {
+						String hostPart = mongoUri.substring(mongoUri.indexOf("@") + 1);
+						String host = hostPart.split("/")[0];
+						logger.info("✓ Connection host: {}", host);
+					}
+				} catch (Exception e) {
+					logger.warn("Could not parse host from URI");
+				}
 			}
 		} else {
 			logger.error("❌ CRITICAL: MongoDB URI is NULL or EMPTY!");
