@@ -94,12 +94,15 @@ public class MongoDbConfig {
 }
 
 @Configuration
-class MongoClientConfigurer {
+class MongoClientConfigurer extends AbstractMongoClientConfiguration {
     private static final Logger logger = LoggerFactory.getLogger(MongoClientConfigurer.class);
+
+    @Autowired
+    private Environment env;
 
     @Bean(name = "mongoClient")
     @ConditionalOnMissingBean
-    public MongoClient mongoClient(Environment env) {
+    public MongoClient mongoClient() {
         String username = env.getProperty("MONGODB_USERNAME");
         String password = env.getProperty("MONGODB_PASSWORD");
         
@@ -110,7 +113,7 @@ class MongoClientConfigurer {
             password
         );
         
-        logger.info("Creating MongoDB client with connection string (masked): mongodb+srv://[user]:[pass]@tgmsoftware.kbnb6qc.mongodb.net/...");
+        logger.info("Creating MongoDB client with connection string (masked): mongodb+srv://[user]:[pass]@tgmsoftware.kbnb6qc.mongodb.net/sample_mflix...");
         
         try {
             MongoClientSettings settings = MongoClientSettings.builder()
@@ -121,5 +124,10 @@ class MongoClientConfigurer {
             logger.error("Failed to create MongoDB client", e);
             throw new RuntimeException("Failed to create MongoDB client with provided credentials", e);
         }
+    }
+
+    @Override
+    protected String getDatabaseName() {
+        return "sample_mflix";
     }
 }

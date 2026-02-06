@@ -8,8 +8,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @AllArgsConstructor
@@ -29,8 +31,17 @@ public class UserController {
             boolean collectionExists = mongoTemplate.collectionExists(UserModel.class);
             logger.info("Collection 'users' exists: {}", collectionExists);
             
-            // Get count of documents
-            long count = mongoTemplate.count(null, UserModel.class);
+            if (!collectionExists) {
+                // List all available collections for debugging
+                Set<String> collections = mongoTemplate.getCollectionNames();
+                logger.error("⚠️  The 'users' collection does NOT exist!");
+                logger.error("Available collections in database: {}", collections);
+                logger.error("Please create the 'users' collection or query a different collection");
+                throw new RuntimeException("The 'users' collection does not exist in the database. Available collections: " + collections);
+            }
+            
+            // Get count of documents using proper Query object
+            long count = mongoTemplate.count(new Query(), UserModel.class);
             logger.info("Total documents in 'users' collection: {}", count);
             
             // Query all users
@@ -39,9 +50,7 @@ public class UserController {
             logger.info("Successfully retrieved {} users from database", result.size());
             
             if (result.isEmpty()) {
-                logger.warn("⚠️ No users found in database. Collection might be empty or not exist.");
-                logger.warn("Expected collection name: 'users'");
-                logger.warn("Expected database: 'sample_mflix'");
+                logger.warn("⚠️ No users found in database. Collection exists but is empty.");
             } else {
                 for (int i = 0; i < Math.min(result.size(), 3); i++) {
                     UserModel user = result.get(i);
