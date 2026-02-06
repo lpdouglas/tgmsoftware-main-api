@@ -27,7 +27,7 @@ COPY --from=build /app/build/libs/*.jar app.jar
 
 EXPOSE 8080
 
-ENV JAVA_OPTS=""
+ENV JAVA_OPTS="-Dcom.mongodb.driver.httpclient.tlsChannelType=netty -Djdk.tls.client.protocols=TLSv1.2"
 
 RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
 

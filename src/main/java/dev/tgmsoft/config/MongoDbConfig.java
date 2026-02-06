@@ -13,6 +13,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import com.mongodb.connection.SslSettings;
+import javax.net.ssl.SSLContext;
+import java.security.KeyStore;
 
 @Component
 public class MongoDbConfig {
@@ -39,8 +42,17 @@ class MongoClientConfigurer extends AbstractMongoClientConfiguration {
         );
         
         try {
+            // Create SSL settings with proper TLS configuration
+            SslSettings sslSettings = SslSettings.builder()
+                .enabled(true)
+                .invalidHostNameAllowed(false)
+                .build();
+            
             MongoClientSettings settings = MongoClientSettings.builder()
                 .applyConnectionString(new ConnectionString(connectionString))
+                .applyToSslSettings(builder -> builder
+                    .enabled(true)
+                    .invalidHostNameAllowed(false))
                 .build();
             return MongoClients.create(settings);
         } catch (Exception e) {
