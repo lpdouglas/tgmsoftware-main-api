@@ -1,123 +1,169 @@
 # MongoDB SSL Connection Debugging Guide for Render Deployment
 
-## Problem
-When accessing `/users` endpoint on Render, getting SSL error:
+## ✅ ROOT CAUSE IDENTIFIED
+
+**The application is trying to connect to `localhost:27017` instead of MongoDB Atlas.**
+
+This means **`MONGODB_USERNAME` and `MONGODB_PASSWORD` environment variables are NOT set on Render.**
+
+## The Problem
+
+When logs show:
 ```
-javax.net.ssl.SSLException: (internal_error) Received fatal alert: internal_error
+❌ CRITICAL: MongoDB URI is using LOCALHOST!
+   URI: mongodb+srv://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@localhost:27017
+   This means environment variables are NOT being interpolated!
 ```
 
-## Root Cause Analysis
-
-The error indicates that either:
-1. **Environment variables are NOT being set on Render** - causing MongoDB credentials to be empty or invalid
-2. **Credentials contain special characters** that need URL encoding
-3. **SSL/TLS handshake is failing** due to certificate validation issues
-
-## Things to Check on Render Dashboard
-
-### 1. Environment Variables
-Go to your Render service dashboard and verify these environment variables are set:
-- `MONGODB_USERNAME` - MongoDB Atlas username with read/write access
-- `MONGODB_PASSWORD` - MongoDB Atlas password
-- `STRIPE_SECRET_KEY` (or `STRIPE_KEY`) - Stripe secret key
-
-**CRITICAL:** The values must NOT contain unresolved template syntax like `${...}`
-
-### 2. Check the Logs for Debug Output
-The application now logs detailed configuration info when it starts. Look for:
-- "CONFIGURATION DEBUG INFO" section 
-- "MONGODB CONFIGURATION DETAILED DEBUG" section
-- Lines like:
-  - `Username set: true/false`
-  - `Password set: true/false`
-  - `URI variables are resolved` (good) vs `contains unresolved variables` (bad)
-
-If you see:
+Or in old logs:
 ```
-! CRITICAL: MongoDB URI contains unresolved variables!
-Raw URI: mongodb+srv://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@...
+[{address=localhost:27017, type=UNKNOWN, state=CONNECTING, exception={...}}]
 ```
-This means **the environment variables are NOT set on Render**.
 
-### 3. Test the Connection
-When you access `/users`, watch for these logs:
-- `=== GET /users endpoint called ===`
-- `Attempting to connect to MongoDB...`
-- Either "Successfully retrieved X users" or error details
+This confirms: **Environment variables are missing on Render Host.**
 
-### 4. Special Characters in Passwords
-If your MongoDB password contains special characters like:
-- `@` → should be `%40`
-- `:` → should be `%3A`
-- `/` → should be `%2F`
-- `?` → should be `%3F`
-- `#` → should be `%23`
+## Solution: Add Environment Variables to Render
 
-You may need to URL-encode them when setting the environment variable.
+### Step 1: Go to Render Dashboard
+1. Login to [Render.com](https://render.com)
+2. Find your service (main-api)
+3. Click **Settings** (or scroll down on service page)
+4. Find **Environment** section
 
-## Quick Fix Checklist
+### Step 2: Add These Variables
+Set EXACTLY these environment variables:
 
-1. **Verify Environment Variables on Render:**
-   - Go to Render Dashboard → Your Service → Environment
-   - Confirm `MONGODB_USERNAME` and `MONGODB_PASSWORD` are there
-   - Copy values and test connectivity locally
-
-2. **Check MongoDB Atlas Credentials:**
-   - Log in to MongoDB Atlas
-   - Go to Database Access → Your user
-   - Verify username and password are correct
-   - Make sure the user has access to the database
-
-3. **Verify IP Allowlist:**
-   - Go to MongoDB Atlas → Security → Network Access
-   - Make sure Render's IP is whitelisted (usually need to whitelist 0.0.0.0/0 for Render)
-
-4. **Enable Debug Logging:**
-   - Application already has `org.mongodb.driver: DEBUG` configured
-   - Check logs on Render for detailed MongoDB driver messages
-
-5. **Test Connection String Locally:**
-   - Copy the exact connection string from the logs
-   - Test with MongoDB CLI: `mongo "your-connection-string"`
-   - Or use MongoDB Atlas UI connection tester
-
-## Useful Render Build Settings
-
-If using `.env` file locally but need environment variables on Render:
-1. Do NOT commit `.env` file to repo
-2. Go to Render Dashboard → Service → Environment
-3. Manually add each variable
-4. Deploy or redeploy the service
-
-## Expected Versus Actual Output
-
-### After Deployment, Logs Should Show:
 ```
-INFO dev.tgmsoft.MainApiApplication - ========== CONFIGURATION DEBUG INFO ==========
-INFO dev.tgmsoft.MainApiApplication - Raw Environment Variables:
-INFO dev.tgmsoft.MainApiApplication -   MONGODB_USERNAME: SET (length: XX)
-INFO dev.tgmsoft.MainApiApplication -   MONGODB_PASSWORD: SET (length: XX)
-INFO dev.tgmsoft.MainApiApplication -   MongoDB URI: mongodb+srv://[username]:[PASSWORD]@ac-xxx.mongodb.net...
+MONGODB_USERNAME=<your-mongodb-atlas-username>
+MONGODB_PASSWORD=<your-mongodb-atlas-password>
+STRIPE_SECRET_KEY=<your-stripe-secret-key>
+```
+
+⚠️ **CRITICAL POINTS:**
+- Do NOT include the `${...}` syntax - put the actual values
+- Values must match exactly what you use to connect in MongoDB Atlas
+- If your password has special characters, it might need URL encoding
+
+### Step 3: Deploy
+After adding environment variables:
+1. Go back to your service
+2. Click **Deploy** or **Redeploy**
+3. Wait for deployment to complete
+
+### Step 4: Check the Logs
+After deployment, look for these lines:
+
+#### ✅ If Variables Are Set:
+```
+Raw Environment Variables:
+  MONGODB_USERNAME: SET (length: XX)
+  MONGODB_PASSWORD: SET (length: XX)
+
+⚠️ ACTUAL MongoDB Connection URI Being Used:
+✓ URI looks correct: mongodb+srv://[username]:[PASSWORD]@ac-6ttpd7u-shard-00-*.kbnb6qc.mongodb.net...
+```
+
+#### ❌ If Variables Are Missing:
+```
+Raw Environment Variables:
+  MONGODB_USERNAME: ❌ NOT SET OR EMPTY
+  MONGODB_PASSWORD: ❌ NOT SET OR EMPTY
+
+⚠️ ACTUAL MongoDB Connection URI Being Used:
+❌ CRITICAL: MongoDB URI is using LOCALHOST!
+   URI: mongodb+srv://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@localhost:27017
+   This means environment variables are NOT being interpolated!
+```
+
+If you see this, **go back to Step 1-3 and add the environment variables.**
+
+## How to Find Your MongoDB Atlas Credentials
+
+1. Login to [MongoDB Atlas](https://cloud.mongodb.com)
+2. Go to **Database Access** (left sidebar)
+3. Find your database user
+4. Note the **Username**
+5. For the password, you need to either:
+   - Know it from when you created the user
+   - Reset it: Click the user → Edit → Change Password
+
+Your connection string template is in:
+- **Databases** → **Connect** → **Copy connection string** → **Python** option
+- Format: `mongodb+srv://USERNAME:PASSWORD@ac-6ttpd7u...`
+
+## Common Issues
+
+### Issue: Password Still Doesn't Work
+**Possible causes:**
+1. Character was copied incorrectly (extra spaces?)
+2. Password contains special characters needing encoding:
+   - `@` → `%40`
+   - `:` → `%3A`
+   - `/` → `%2F`
+   - `#` → `%23`
+
+**Solution:** Try URL-encoding the password before setting it on Render
+
+### Issue: Variables Are Set But Still Getting localhost
+1. Clear Render's build cache: Settings → Clear build cache → Deploy
+2. Or redeploy from a new commit
+
+### Issue: Connection Timeout (not localhost error)
+- If you see `timeout` or `SSL alert: internal_error`, it's a different issue
+- Check MongoDB Atlas **Network Access** - make sure Render's IP is whitelisted
+- Or whitelist 0.0.0.0/0 (all IPs)
+
+## Verification Checklist
+
+Before redeploying, verify in order:
+
+- [ ] Opened Render Dashboard
+- [ ] Opened your service Settings
+- [ ] Scrolled to Environment section
+- [ ] Added `MONGODB_USERNAME` (the actual username, not a variable)
+- [ ] Added `MONGODB_PASSWORD` (the actual password, not a variable)
+- [ ] Clicked "Save"
+- [ ] Clicked "Deploy" or "Redeploy"
+- [ ] Waited for deployment to finish
+- [ ] Checked logs for "SET" confirmation messages
+- [ ] Accessed `/users` endpoint
+- [ ] Logs now show correct MongoDB host (not localhost)
+
+## Expected Output When Working
+
+### On Application Startup:
+```
+INFO 1 --- [main-api] dev.tgmsoft.MainApiApplication : ========== APPLICATION STARTUP ==========
+INFO 1 --- [main-api] dev.tgmsoft.MainApiApplication : ========== CONFIGURATION DEBUG INFO ==========
+INFO 1 --- [main-api] dev.tgmsoft.MainApiApplication : Raw Environment Variables:
+INFO 1 --- [main-api] dev.tgmsoft.MainApiApplication :   MONGODB_USERNAME: SET (length: 12)
+INFO 1 --- [main-api] dev.tgmsoft.MainApiApplication :   MONGODB_PASSWORD: SET (length: 24)
+INFO 1 --- [main-api] dev.tgmsoft.MainApiApplication : 
+INFO 1 --- [main-api] dev.tgmsoft.MainApiApplication : ⚠️ ACTUAL MongoDB Connection URI Being Used:
+INFO 1 --- [main-api] dev.tgmsoft.MainApiApplication : ✓ URI looks correct: mongodb+srv://[username]:[PASSWORD]@ac-6ttpd7u-shard-00-00.kbnb6qc.mongodb.net...
 ```
 
 ### When Calling /users:
 ```
-INFO dev.tgmsoft.controller.UserController - === GET /users endpoint called ===
-INFO dev.tgmsoft.controller.UserController - Attempting to connect to MongoDB...
-INFO dev.tgmsoft.controller.UserController - Successfully retrieved N users from database
+INFO 1 --- [main-api] dev.tgmsoft.controller.UserController : === GET /users endpoint called ===
+INFO 1 --- [main-api] dev.tgmsoft.controller.UserController : Attempting to connect to MongoDB...
+INFO 1 --- [main-api] dev.tgmsoft.controller.UserController : Successfully retrieved 5 users from database
 ```
 
-### If There's an Error:
-```
-ERROR dev.tgmsoft.controller.UserController - ERROR connecting to MongoDB during /users request
-ERROR dev.tgmsoft.controller.UserController - Exception type: com.mongodb.MongoSocketWriteException
-ERROR dev.tgmsoft.controller.UserController - Exception message: (various)
-ERROR dev.tgmsoft.controller.UserController - Root cause: javax.net.ssl.SSLException - ...
-```
+## Quick Reference
 
-## Next Steps
+| Issue | What You'll See | Next Step |
+|-------|-----------------|-----------|
+| Variables not set | `NOT SET OR EMPTY` | Add vars to Render Environment |
+| Variables set but using localhost | `using LOCALHOST` | Clear cache and redeploy |
+| Variables set + correct host | `URI looks correct` | Should work now - test `/users` |
 
-1. Deploy the updated code with enhanced logging
-2. Check the startup logs for "CONFIGURATION DEBUG INFO" output
-3. Access `/users` endpoint and check the logs
-4. Share the relevant log sections to diagnose the actual issue
+## Need More Help?
+
+Share these logs with your team:
+1. The startup "CONFIGURATION DEBUG INFO" section
+2. Any error message when calling `/users`
+3. Screenshot of your Render Environment variables (password masked)
+
+This will help pinpoint exactly what's wrong.
+

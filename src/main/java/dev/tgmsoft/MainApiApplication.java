@@ -15,6 +15,7 @@ public class MainApiApplication {
 	private static final Logger logger = LoggerFactory.getLogger(MainApiApplication.class);
 
 	public static void main(String[] args) {
+		logger.info("========== APPLICATION STARTUP ==========");
 		SpringApplication.run(MainApiApplication.class, args);
 	}
 	
@@ -23,6 +24,7 @@ public class MainApiApplication {
 	
 	@EventListener
 	public void onApplicationEvent(ContextRefreshedEvent event) {
+		logger.info("\n");
 		logger.info("========== CONFIGURATION DEBUG INFO ==========");
 		
 		String mongoUsername = env.getProperty("MONGODB_USERNAME");
@@ -32,30 +34,43 @@ public class MainApiApplication {
 		// Log raw environment variables
 		logger.info("Raw Environment Variables:");
 		logger.info("  MONGODB_USERNAME: {}", 
-			(mongoUsername != null && !mongoUsername.isEmpty()) ? "SET (length: " + mongoUsername.length() + ")" : "NOT SET OR EMPTY");
+			(mongoUsername != null && !mongoUsername.isEmpty()) ? "SET (length: " + mongoUsername.length() + ")" : "❌ NOT SET OR EMPTY");
 		logger.info("  MONGODB_PASSWORD: {}", 
-			(mongoPassword != null && !mongoPassword.isEmpty()) ? "SET (length: " + mongoPassword.length() + ")" : "NOT SET OR EMPTY");
+			(mongoPassword != null && !mongoPassword.isEmpty()) ? "SET (length: " + mongoPassword.length() + ")" : "❌ NOT SET OR EMPTY");
 		
-		// Log the constructed URI (masked for security)
+		// CRITICAL: Log the ACTUAL URI Spring is using
+		logger.info("\n⚠️  ACTUAL MongoDB Connection URI Being Used:");
 		if (mongoUri != null && !mongoUri.isEmpty()) {
-			String maskedUri = maskMongoUri(mongoUri);
-			logger.info("  MongoDB URI: {}", maskedUri);
+			// Check if it contains unresolved variables
+			if (mongoUri.contains("${")) {
+				logger.error("❌ CRITICAL: MongoDB URI contains UNRESOLVED variables!");
+				logger.error("   Raw URI template: {}", mongoUri);
+				logger.error("   This means environment variables are NOT being loaded!");
+			} else if (mongoUri.contains("localhost")) {
+				logger.error("❌ CRITICAL: MongoDB URI is using LOCALHOST!");
+				logger.error("   URI: {}", mongoUri);
+				logger.error("   This means environment variables are NOT being interpolated!");
+				logger.error("   Expected to connect to: ac-6ttpd7u-shard-00-*.kbnb6qc.mongodb.net");
+			} else {
+				String maskedUri = maskMongoUri(mongoUri);
+				logger.info("✓ URI looks correct: {}", maskedUri);
+			}
 		} else {
-			logger.warn("  MongoDB URI: NOT SET OR EMPTY - This will cause connection failures!");
+			logger.error("❌ CRITICAL: MongoDB URI is NULL or EMPTY!");
 		}
 		
 		// Check if username or password contain special characters that might not be properly encoded
 		if (mongoUsername != null && mongoUsername.contains("@")) {
-			logger.warn("MONGODB_USERNAME contains @ symbol - this may need URL encoding!");
+			logger.warn("⚠️  MONGODB_USERNAME contains @ symbol - this may need URL encoding!");
 		}
 		if (mongoPassword != null && mongoPassword.contains("@")) {
-			logger.warn("MONGODB_PASSWORD contains @ symbol - this may need URL encoding!");
+			logger.warn("⚠️  MONGODB_PASSWORD contains @ symbol - this may need URL encoding!");
 		}
 		if (mongoPassword != null && mongoPassword.contains(":")) {
-			logger.warn("MONGODB_PASSWORD contains : symbol - this may need URL encoding!");
+			logger.warn("⚠️  MONGODB_PASSWORD contains : symbol - this may need URL encoding!");
 		}
 		
-		logger.info("Stripe Configuration:");
+		logger.info("\nStripe Configuration:");
 		String stripeKey = env.getProperty("STRIPE_SECRET_KEY");
 		String stripeKeyFallback = env.getProperty("STRIPE_KEY");
 		logger.info("  STRIPE_SECRET_KEY: {}", 
@@ -63,8 +78,17 @@ public class MainApiApplication {
 		logger.info("  STRIPE_KEY (fallback): {}", 
 			(stripeKeyFallback != null && !stripeKeyFallback.isEmpty()) ? "SET (length: " + stripeKeyFallback.length() + ")" : "NOT SET");
 		
-		logger.info("=========================================");
-		logger.info("MongoDB Connection: Ready to connect on first request to /users");
+		logger.info("\n========== END DEBUG INFO ==========\n");
+		
+		// DIAGNOSTIC: Show what went wrong
+		if ((mongoUsername == null || mongoUsername.isEmpty()) || 
+		    (mongoPassword == null || mongoPassword.isEmpty())) {
+			logger.error("\n🔴 CONNECTION WILL FAIL - Environment Variables Not Set!");
+			logger.error("On Render Host, make sure these environment variables are configured:");
+			logger.error("  - MONGODB_USERNAME");
+			logger.error("  - MONGODB_PASSWORD");
+			logger.error("Check Render Dashboard → Service → Environment to add them.\n");
+		}
 	}
 	
 	/**
