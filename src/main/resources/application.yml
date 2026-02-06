@@ -1,8 +1,16 @@
 spring:
   application:
     name: main-api
-  mongodb:
-    uri: mongodb+srv://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@tgmsoftware.kbnb6qc.mongodb.net/sample_mflix?appName=sample_mflix&retryWrites=true&w=majority
+  data:
+    mongodb:
+      uri: mongodb+srv://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@tgmsoftware.kbnb6qc.mongodb.net/sample_mflix?appName=sample_mflix&retryWrites=true&w=majority&tls=true
 
 stripe:
   key: ${STRIPE_SECRET_KEY:${STRIPE_KEY}}
+
+logging:
+  level:
+    root: INFO
+    dev.tgmsoft: DEBUG
+    org.mongodb.driver: DEBUG
+    com.mongodb: DEBUG
