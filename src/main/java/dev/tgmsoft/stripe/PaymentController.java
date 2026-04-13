@@ -1,7 +1,8 @@
 package dev.tgmsoft.stripe;
 
-import com.stripe.model.PaymentIntent;
 import lombok.AllArgsConstructor;
+
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,12 +16,12 @@ public class PaymentController {
 
     public StripeService stripeService;
 
-    @PostMapping("/10")
-    public Map<String, String> createPayment() throws Exception {
-        PaymentIntent intent = stripeService.charge10Dollars();
+    @PostMapping("/{amount}")
+    public Map<String, String> createPayment(@PathVariable("amount") Integer amount) throws Exception {
+        System.out.println("PaymentIntent created with amount: " + amount);
 
-        return Map.of(
-                "clientSecret", intent.getClientSecret()
-        );
+        Map<String, String> intent = stripeService.charge(amount);
+
+        return intent;
     }
 }

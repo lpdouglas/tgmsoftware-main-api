@@ -4,6 +4,10 @@ import com.stripe.Stripe;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
 import lombok.extern.log4j.Log4j2;
+
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -20,22 +24,27 @@ public class StripeService {
         //log.info("STRIPE API KEY: {}", stripeKey);
     }
 
-    public PaymentIntent charge10Dollars() throws Exception {
+    public Map<String, String> charge(Integer amount) throws Exception {
+    Configure();
 
-        Configure();
+    PaymentIntentCreateParams params =
+            PaymentIntentCreateParams.builder()
+                    .setAmount(amount * 100L)
+                    .setCurrency("usd")
+                    .setAutomaticPaymentMethods(
+                            PaymentIntentCreateParams.AutomaticPaymentMethods
+                                    .builder()
+                                    .setEnabled(true)
+                                    .build()
+                    )
+                    .build();
 
-        PaymentIntentCreateParams params =
-                PaymentIntentCreateParams.builder()
-                        .setAmount(1000L) // 10.00 USD (amount is in cents)
-                        .setCurrency("usd")
-                        .setAutomaticPaymentMethods(
-                                PaymentIntentCreateParams.AutomaticPaymentMethods
-                                        .builder()
-                                        .setEnabled(true)
-                                        .build()
-                        )
-                        .build();
+    PaymentIntent paymentIntent = PaymentIntent.create(params);
+    
+    // Return the client secret to the frontend
+    Map<String, String> response = new HashMap<>();
+    response.put("clientSecret", paymentIntent.getClientSecret());
+    return response;
+}
 
-        return PaymentIntent.create(params);
-    }
 }
